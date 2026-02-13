@@ -503,8 +503,23 @@ app.get("/setup", requireSetupAuth, (_req, res) => {
 });
 
 app.get("/setup/api/status", requireSetupAuth, async (_req, res) => {
-  const version = await runCmd(OPENCLAW_NODE, clawArgs(["--version"]));
-  const channelsHelp = await runCmd(OPENCLAW_NODE, clawArgs(["channels", "add", "--help"]));
+  // Collect version and help text with fallbacks - if these fail, we still return authGroups
+  let openclawVersion = "";
+  let channelsAddHelp = "";
+
+  try {
+    const version = await runCmd(OPENCLAW_NODE, clawArgs(["--version"]));
+    openclawVersion = version.output?.trim() || "";
+  } catch (e) {
+    console.error("[/setup/api/status] failed to get version:", e);
+  }
+
+  try {
+    const channelsHelp = await runCmd(OPENCLAW_NODE, clawArgs(["channels", "add", "--help"]));
+    channelsAddHelp = channelsHelp.output || "";
+  } catch (e) {
+    console.error("[/setup/api/status] failed to get channels help:", e);
+  }
 
   // We reuse OpenClaw's own auth-choice grouping logic indirectly by hardcoding the same group defs.
   // This is intentionally minimal; later we can parse the CLI help output to stay perfectly in sync.
@@ -560,8 +575,8 @@ app.get("/setup/api/status", requireSetupAuth, async (_req, res) => {
   res.json({
     configured: isConfigured(),
     gatewayTarget: GATEWAY_TARGET,
-    openclawVersion: version.output.trim(),
-    channelsAddHelp: channelsHelp.output,
+    openclawVersion,
+    channelsAddHelp,
     authGroups,
   });
 });
